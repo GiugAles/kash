@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from clideps.env_vars.dotenv_utils import env_var_is_set
 from clideps.env_vars.env_names import EnvName
 
@@ -18,7 +20,13 @@ def api_for_model(model: LLMName) -> EnvName | None:
     init_litellm()
 
     try:
-        _model, custom_llm_provider, _dynamic_api_key, _api_base = get_llm_provider(model)
+        if model == os.getenv("LM_STUDIO_MODEL"):
+            custom_llm_provider = "lm_studio"
+        else:
+            custom_llm_provider = None
+        _model, custom_llm_provider, _dynamic_api_key, _api_base = get_llm_provider(
+            model=model, custom_llm_provider=custom_llm_provider
+        )
     except litellm.exceptions.BadRequestError:
         return None
 

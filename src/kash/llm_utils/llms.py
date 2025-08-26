@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from enum import Enum
 
 from kash.llm_utils.llm_names import LLMName
@@ -11,6 +12,9 @@ class LLM(LLMName, Enum):
     ones for autocomplete, docs, etc. Values are all LiteLLM names. See:
     https://github.com/BerriAI/litellm/blob/main/litellm/model_prices_and_context_window_backup.json
     """
+
+
+    lm_studio = LLMName(os.getenv("LM_STUDIO_MODEL")) if os.getenv("LM_STUDIO_MODEL") else None
 
     # https://platform.openai.com/docs/models
     gpt_5 = LLMName("gpt-5")

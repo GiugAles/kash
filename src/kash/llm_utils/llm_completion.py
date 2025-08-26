@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
@@ -76,10 +77,16 @@ def llm_completion(
 
     init_litellm()
 
+    # With lm_studio provided models, base_url and model name are not standardized
+    # TODO: Requires better solution. LM Studio can host multiple models
+    model_name = os.getenv("LM_STUDIO_MODEL", model)
+    base_url = os.getenv("LM_STUDIO_API_BASE", None)
+    custom_llm_provider = "lm_studio" if base_url else None
+
     chat_history = ChatHistory.from_dicts(messages)
     log.info(
         "Calling LLM completion from %s on %s, response_format=%s",
-        model.litellm_name,
+        model_name,
         chat_history.size_summary(),
         response_format,
     )
@@ -88,9 +95,12 @@ def llm_completion(
     llm_output = cast(
         ModelResponse,
         litellm.completion(
-            model.litellm_name,
+            model_name,
             messages=messages,
             response_format=response_format,
+            base_url=base_url,
+            # litellm will recognize this as openai client
+            custom_llm_provider=custom_llm_provider,
             **kwargs,
         ),  # pyright: ignore
     )
@@ -103,12 +113,12 @@ def llm_completion(
     # Just sanity checking and logging.
     content = choices.message.content
     if not content or not isinstance(content, str):
-        raise ApiResultError(f"LLM completion failed: {model.litellm_name}: {llm_output}")
+        raise ApiResultError(f"LLM completion failed: {model_name}: {llm_output}")
 
     total_input_len = sum(len(m["content"]) for m in messages)
     speed = len(content) / elapsed
     log.info(
-        f"{EMOJI_TIMING} LLM completion from {model.litellm_name} in {format_duration(elapsed)}: "
+        f"{EMOJI_TIMING} LLM completion from {model_name} in {format_duration(elapsed)}: "
         f"input {total_input_len} chars in {len(messages)} messages, output {len(content)} chars "
         f"({speed:.0f} char/s)"
     )
@@ -120,7 +130,7 @@ def llm_completion(
         chat_history.messages.append(
             ChatMessage(role=ChatRole.assistant, content=content, metadata=metadata)
         )
-        model_slug = slugify_snake(model.litellm_name)
+        model_slug = slugify_snake(model_name)
         log.save_object(
             "LLM response",
             f"llm.{model_slug}",
